@@ -9,10 +9,10 @@ class Pineapple_gossip_bot(Node):
     def __init__(self):
         super().__init__('pineapple_gossip_bot')
         self.publisher_ = self.create_publisher(String, '/status_updates', 10)
-        timer_period = 2  # seconds
+        timer_period = 2  # Timer for the message to display
         self.timer = self.create_timer(timer_period, self.timer_callback)
-        self.messages = ["Hello","Hi","Test Message"]
-        self.i = 0
+        self.messages = ["Available","Currently Busy","Full Capactiy", "Failed"] #Status messages
+        self.i = 0 # Loop to print the status messages
 
 
     def timer_callback(self):
