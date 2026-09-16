@@ -23,8 +23,8 @@ slam_toolbox:
     # Frames
     odom_frame: virtual_hand_solo/odom
     map_frame: map
-    base_frame: virtual_hand_solo/baselink
-    scan_topic: /virtual_hand_solo/lidar_link
+    base_frame: virtual_hand_solo/base_link
+    scan_topic: virtual_hand_solo/scan
 
 
     # Laser sanity (adjust to your sim)
