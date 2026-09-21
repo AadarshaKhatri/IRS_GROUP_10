@@ -10,4 +10,7 @@
 
 ---
 
+## Week 6 - Generate Map
+
+![Generate Map](image/map_1789562511.png)
 
