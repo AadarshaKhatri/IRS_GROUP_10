@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import math
 import time
 
@@ -83,39 +82,35 @@ def main():
         node.get_logger().info('Goal reached successfully!')
         return True
 
-    # --- Hard-coded waypoints for this lab. Edit this section in the code and make it your own ---
+    # Sample goal pose. Make your own! You can create multiple way points
+    wp1 = make_pose(1.84,13.3,- 0.00143)
+    wp2 = make_pose(-15.7,-3.01,-0.00143)
+    wp3 = make_pose(-24.7, 8.04, -0.00143)
+    wp4 = make_pose(-7.22, 22.2, 0.00247)
 
-    wp1 = make_pose(0, 0, 0)          # Sample goal pose. Make your own! You can create multiple way points
-    wp2 = make_pose(25.1,14,- 0.00534)
-    wp3 = make_pose(23.5,0.243,-0.00534)
-    wp4 = make_pose(-2.36, 0.37, -0.00143)
+    wait_seconds = 5.0  # How long to wait at each waypoint
 
-    wait_seconds = 5.0                      # How long to wait at each waypoint
-
-    # 3. Go to first waypoint
+    # Go to first waypoint
     send_and_wait(wp1)
-    # 4. Pause to simulate "waiting at waypoint"
-    node.get_logger().info(f'Waiting {wait_seconds:.0f} seconds at waypoint 1...')
-    time.sleep(wait_seconds)
+    node.get_logger().info(f'Waiting {wait_seconds:.0f} seconds at waypoint 1...') # Stoping at first waypoint
+    time.sleep(wait_seconds) # Wait function
 
+    # Go to second waypoint
     send_and_wait(wp2)
     node.get_logger().info(f'Waiting {wait_seconds:.0f} seconds at waypoint 2...')
     time.sleep(wait_seconds)
 
-
+    # Go to third waypoint
     send_and_wait(wp3)
     node.get_logger().info(f'Waiting {wait_seconds:.0f} seconds at waypoint 3...')
     time.sleep(wait_seconds)
 
+    # Go to fourth waypoint
     send_and_wait(wp4)
     node.get_logger().info(f'Waiting {wait_seconds:.0f} seconds at waypoint 4...')
     time.sleep(wait_seconds)
 
-    # Add some sort of delay functionality. Look up pythons time module
-
-    # 5. Go to other waypoints and delays if you want
-
-    # --- Your custom code ends here ---
+    # --- custom code ends here ---
 
     # 6. Shutdown node and ROS2
     node.get_logger().info('Navigation sequence complete. Shutting down.')
