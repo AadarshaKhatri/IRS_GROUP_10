@@ -39,10 +39,10 @@ amcl:
     z_short: 0.05
     set_initial_pose: true
     initial_pose:
-     x: -1.22
-     y: 25.4
-     z: 0.0
-     yaw: -0.00143
+      x: -1.22
+      y: 25.4
+      z: 0.0
+      yaw: -0.00143
     scan_topic: /virtual_hand_solo/scan
 
 bt_navigator:
