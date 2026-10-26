@@ -94,7 +94,7 @@ class GrandChallenge(Node):
         rclpy.spin_until_future_complete(self, res_fut)
         res = res_fut.result()
         return bool(res and res.status == 4)  # 4 = STATUS_SUCCEEDED
-
+    
     def send_nav_and_wait(self,pose: PoseStamped) -> bool:
         # Update timestamp (required in headers)
 
@@ -140,52 +140,57 @@ class GrandChallenge(Node):
         return True
 
     def listener_callback(self, msg):
-
         try:
             data = json.loads(msg.data)
+
             box = data["box"]
             counts = data["counts"]
 
-            total_count = counts["total"]
+            location = str(box.get("location", "")).replace(":", "").strip()
+            total_count = counts.get("total")
 
-            location = box["location"].replace(":", "").strip()
-
-            self.location = location
-            self.hmi_triggered = True
-
-            # Only accept valid locations
-            if self.location not in ["A", "B", "C"]:
+            if location not in ["A", "B", "C"]:
                 return
 
-            
-            # Updating Total Counts
+            if total_count is None:
+                return
 
+            total_count = int(total_count)
+
+            # First message: initialise count without navigating
             if self.last_count is None:
                 self.last_count = total_count
-                return 
+                return
 
+            # Trigger only when a NEW box has reached its location
             if total_count > self.last_count:
+                self.location = location
                 self.hmi_triggered = True
-                self.get_logger().info("New Box Detcted!")
+
+                self.get_logger().info(
+                    f"New box at location {location}, total count: {total_count}"
+                )
 
             self.last_count = total_count
 
-        except Exception as e:
-            self.get_logger().error(f"Failed to parse JSON: {e}\nRaw msg={msg.data}")
-
-
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
+            self.get_logger().error(f"HMI error: {e}")
+    
     def run(self):
 
         original_position = [0.0, 0.0, 1.57, 0.0, 1.57, 0.0]
-        pick_position = [2.0, 28.0, 90.00, 316.0, 86.0, 69.0]
-        carry_postion = [2.0, 8.0, 70.00, 316.0, 86.0, 69.0]
-        place_position = [2.0, 3.0, 110.00, 316.0, 86.0, 69.0]
+        pick_position = [math.radians(2.0), math.radians(35.0), math.radians(90.0), math.radians(316.0),math.radians(86.0), math.radians(69.0)]
+        carry_postion = [math.radians(2.0), math.radians(8.0), math.radians(70.0), math.radians(316.0), math.radians(86.0), math.radians(69.0)]
+        place_position = [math.radians(2.0), math.radians(3.0), math.radians(110.0), math.radians(316.0),math.radians(86.0), math.radians(69.0)]
 
-        location_C = self.make_pose(2.75,0.336,- 0.00143)
-        location_B = self.make_pose(2.73,-0.2,-0.00143)
-        location_A = self.make_pose(2.36, -0.983, -0.00143)
+        location_C = self.make_pose(2.99,1,0)
+        location_B = self.make_pose(3.09,0.00391,0)
+        location_A = self.make_pose(2.99, -1.01,0)
 
-        shelf_position = self.make_pose(30.9,-4.72,-0.00143)
+        turn_around_from_conveyor = self.make_pose(1,1,3.14)
+        turn_around_from_shelf = self.make_pose(30.9,-4.72,1.5714)
+        
+        shelf_position = self.make_pose(30.9,-4.72,-1.5714)
         try:
             while rclpy.ok():
                 while rclpy.ok() and not self.hmi_triggered:
@@ -195,7 +200,7 @@ class GrandChallenge(Node):
                     break
                 
                 self.hmi_triggered = False
-
+                time.sleep(7.0)
                 if self.location == 'C':
                     self.get_logger().info('Navigating to location C')
                     if not self.send_nav_and_wait(location_C):
@@ -206,11 +211,15 @@ class GrandChallenge(Node):
                         return 
 
                     self.get_logger().info("Carrying the box")
-                    time.sleep(5.0)
+                    
                     if not self._send_arm_and_wait(carry_postion):
                         return
 
                     self.carry_postion = True
+
+                    self.get_logger().info("Turnign Around")    
+                    if not self.send_nav_and_wait(turn_around_from_conveyor):
+                        return 
 
                     if self.carry_postion == True:
                         self.get_logger().info("Putting the box in shelf")
@@ -222,7 +231,10 @@ class GrandChallenge(Node):
                             return 
 
                         self.carry_postion = False
-
+                        
+                        self.get_logger().info("Turning Around")
+                        if not self.send_nav_and_wait(turn_around_from_shelf):
+                            return 
                     
                     self.get_logger().info("Placed the box at the shelf.")
                     
@@ -236,12 +248,16 @@ class GrandChallenge(Node):
                         return 
 
                     self.get_logger().info("Carrying the box")
-                    time.sleep(5.0)
+
                     if not self._send_arm_and_wait(carry_postion):
                         return
 
                     self.carry_postion = True
-
+                    
+                    self.get_logger().info("Turning Around")
+                    if not self.send_nav_and_wait(turn_around_from_conveyor):
+                        return 
+                    
                     if self.carry_postion == True:
                         self.get_logger().info("Putting the box in shelf")
                         if not self.send_nav_and_wait(shelf_position):
@@ -253,6 +269,9 @@ class GrandChallenge(Node):
 
                         self.carry_postion = False
 
+                        self.get_logger().info("Turning Around")
+                        if not self.send_nav_and_wait(turn_around_from_shelf):
+                            return 
                     
                     self.get_logger().info("Placed the box at the shelf.")
                     
@@ -266,11 +285,15 @@ class GrandChallenge(Node):
                         return 
 
                     self.get_logger().info("Carrying the box")
-                    time.sleep(5.0)
+
                     if not self._send_arm_and_wait(carry_postion):
                         return
                     
                     self.carry_postion = True
+                    
+                    self.get_logger().info("Turning Around")
+                    if not self.send_nav_and_wait(turn_around_from_conveyor):
+                        return
 
                     if self.carry_postion == True:
                         self.get_logger().info("Putting the box in shelf")
@@ -285,6 +308,9 @@ class GrandChallenge(Node):
 
                         self.carry_postion = False
 
+                        self.get_logger("Turning Around")
+                        if not self.send_nav_and_wait(turn_around_from_shelf):
+                            return 
                     
                     self.get_logger().info("Placed the box at the shelf.")
                     
