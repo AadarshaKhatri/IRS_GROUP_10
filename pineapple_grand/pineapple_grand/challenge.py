@@ -36,9 +36,7 @@ class GrandChallenge(Node):
         self.box = None
         self.hmi_triggered = False
         self.last_count = None 
-        self.location = None
-        self.currently_attached = False
-
+        self.weight = None
     # --- Helper function to build a PoseStamped ---
     @staticmethod 
     def make_pose(x: float, y: float, yaw: float) -> PoseStamped:
@@ -140,41 +138,43 @@ class GrandChallenge(Node):
         return True
 
     def listener_callback(self, msg):
+
         try:
             data = json.loads(msg.data)
-
             box = data["box"]
             counts = data["counts"]
-
-            location = str(box.get("location", "")).replace(":", "").strip()
-            total_count = counts.get("total")
-
-            if location not in ["A", "B", "C"]:
+            raw_weight = box.get("weight_raw")
+            if raw_weight is None or not str(raw_weight).strip():
                 return
 
-            if total_count is None:
+            weight_str = str(raw_weight).replace(":", "").replace("kg", "").strip()
+
+            try:
+                weight = int(float(weight_str))
+            except ValueError:
                 return
+ 
 
-            total_count = int(total_count)
+            if self.weight is None:
+                self.weight =0
+            
+            self.weight = weight
 
-            # First message: initialise count without navigating
+            total_count = counts["total"]
+            
+            # Updating Total Counts
             if self.last_count is None:
                 self.last_count = total_count
                 return
 
-            # Trigger only when a NEW box has reached its location
             if total_count > self.last_count:
-                self.location = location
                 self.hmi_triggered = True
-
-                self.get_logger().info(
-                    f"New box at location {location}, total count: {total_count}"
-                )
+                self.get_logger().info("New Box Detcted!")
 
             self.last_count = total_count
 
-        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
-            self.get_logger().error(f"HMI error: {e}")
+        except Exception as e:
+            self.get_logger().error(f"Failed to parse JSON: {e}\nRaw msg={msg.data}")
     
     def run(self):
 
@@ -183,9 +183,9 @@ class GrandChallenge(Node):
         carry_postion = [math.radians(2.0), math.radians(8.0), math.radians(70.0), math.radians(316.0), math.radians(86.0), math.radians(69.0)]
         place_position = [math.radians(2.0), math.radians(3.0), math.radians(110.0), math.radians(316.0),math.radians(86.0), math.radians(69.0)]
 
-        location_C = self.make_pose(2.99,1,0)
-        location_B = self.make_pose(3.09,0.00391,0)
-        location_A = self.make_pose(2.99, -1.01,0)
+        location_C = self.make_pose(2.83,0.7426536083221436,0.000)
+        location_B = self.make_pose(2.82,-0.0732,0.000)
+        location_A = self.make_pose(2.5,-0.9,0.000)
 
         turn_around_from_conveyor = self.make_pose(1,1,3.14)
         turn_around_from_shelf = self.make_pose(30.9,-4.72,1.5714)
@@ -200,8 +200,8 @@ class GrandChallenge(Node):
                     break
                 
                 self.hmi_triggered = False
-                time.sleep(7.0)
-                if self.location == 'C':
+            
+                if self.weight>0 and self.weight<=5:
                     self.get_logger().info('Navigating to location C')
                     if not self.send_nav_and_wait(location_C):
                         return
@@ -238,7 +238,7 @@ class GrandChallenge(Node):
                     
                     self.get_logger().info("Placed the box at the shelf.")
                     
-                if self.location == 'B':
+                if self.weight>5 and self.weight<=10:
                     self.get_logger().info('Navigating to location B')
                     if not self.send_nav_and_wait(location_B):
                         return
@@ -275,7 +275,7 @@ class GrandChallenge(Node):
                     
                     self.get_logger().info("Placed the box at the shelf.")
                     
-                if self.location == 'A':
+                if self.weight>10:
                     self.get_logger().info('Navigating to location A')
                     if not self.send_nav_and_wait(location_A):
                         return 
@@ -308,7 +308,7 @@ class GrandChallenge(Node):
 
                         self.carry_postion = False
 
-                        self.get_logger("Turning Around")
+                        self.get_logger().info("Turning Around")
                         if not self.send_nav_and_wait(turn_around_from_shelf):
                             return 
                     
@@ -318,10 +318,6 @@ class GrandChallenge(Node):
         except (json.JSONDecodeError, KeyError, TypeError, AttributeError) as e:
             self.get_logger().error(f"Failed to parse JSON: {e}")
 
-
-        # Waypoint 1
-        if not self._send_and_wait([0.0, 0.0, 1.57, 0.0, 1.57, 0.0]): return
-        time.sleep(10.0)
 
 
 def main(args=None):
