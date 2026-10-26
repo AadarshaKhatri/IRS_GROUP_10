@@ -12,7 +12,7 @@ from moveit_msgs.msg import MotionPlanRequest, Constraints, JointConstraint
 from std_msgs.msg import String
 import json 
 from typing import List
-
+from geometry_msgs.msg import Twist
 
 class GrandChallenge(Node):
 
@@ -32,7 +32,7 @@ class GrandChallenge(Node):
         self.get_logger().info('NavigateToPose action server ready')
 
         self.subscription = self.create_subscription(String,'/hmi/unified_status',self.listener_callback,10)
-        
+        self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         self.box = None
         self.hmi_triggered = False
         self.last_count = None 
@@ -175,7 +175,20 @@ class GrandChallenge(Node):
 
         except Exception as e:
             self.get_logger().error(f"Failed to parse JSON: {e}\nRaw msg={msg.data}")
-    
+
+ 
+    def reverse_robot(self):
+        cmd = Twist()
+        cmd.linear.x = -1.0  # Reverse at 0.1 m/s
+        cmd.angular.z = 0.0  # No rotation
+
+        for i in range(20):
+            self.cmd_pub.publish(cmd)
+            time.sleep(0.1)
+
+        # Stop the robot
+        self.cmd_pub.publish(Twist())
+     
     def run(self):
 
         original_position = [0.0, 0.0, 1.57, 0.0, 1.57, 0.0]
@@ -184,11 +197,9 @@ class GrandChallenge(Node):
         place_position = [math.radians(2.0), math.radians(3.0), math.radians(110.0), math.radians(316.0),math.radians(86.0), math.radians(69.0)]
 
         location_C = self.make_pose(2.83,0.7426536083221436,0.000)
-        location_B = self.make_pose(2.82,-0.0732,0.000)
-        location_A = self.make_pose(2.5,-0.9,0.000)
+        location_B = self.make_pose(2.82,-0.0332,0.000)
+        location_A = self.make_pose(2.5,-0.65,0.000)
 
-        turn_around_from_conveyor = self.make_pose(1,1,3.14)
-        turn_around_from_shelf = self.make_pose(30.9,-4.72,1.5714)
         
         shelf_position = self.make_pose(30.9,-4.72,-1.5714)
         try:
@@ -218,8 +229,7 @@ class GrandChallenge(Node):
                     self.carry_postion = True
 
                     self.get_logger().info("Turnign Around")    
-                    if not self.send_nav_and_wait(turn_around_from_conveyor):
-                        return 
+                    self.reverse_robot()
 
                     if self.carry_postion == True:
                         self.get_logger().info("Putting the box in shelf")
@@ -233,8 +243,7 @@ class GrandChallenge(Node):
                         self.carry_postion = False
                         
                         self.get_logger().info("Turning Around")
-                        if not self.send_nav_and_wait(turn_around_from_shelf):
-                            return 
+                        self.reverse_robot()
                     
                     self.get_logger().info("Placed the box at the shelf.")
                     
@@ -255,8 +264,7 @@ class GrandChallenge(Node):
                     self.carry_postion = True
                     
                     self.get_logger().info("Turning Around")
-                    if not self.send_nav_and_wait(turn_around_from_conveyor):
-                        return 
+                    self.reverse_robot()
                     
                     if self.carry_postion == True:
                         self.get_logger().info("Putting the box in shelf")
@@ -270,8 +278,7 @@ class GrandChallenge(Node):
                         self.carry_postion = False
 
                         self.get_logger().info("Turning Around")
-                        if not self.send_nav_and_wait(turn_around_from_shelf):
-                            return 
+                        self.reverse_robot()
                     
                     self.get_logger().info("Placed the box at the shelf.")
                     
@@ -292,8 +299,7 @@ class GrandChallenge(Node):
                     self.carry_postion = True
                     
                     self.get_logger().info("Turning Around")
-                    if not self.send_nav_and_wait(turn_around_from_conveyor):
-                        return
+                    self.reverse_robot()
 
                     if self.carry_postion == True:
                         self.get_logger().info("Putting the box in shelf")
@@ -309,8 +315,7 @@ class GrandChallenge(Node):
                         self.carry_postion = False
 
                         self.get_logger().info("Turning Around")
-                        if not self.send_nav_and_wait(turn_around_from_shelf):
-                            return 
+                        self.reverse_robot()
                     
                     self.get_logger().info("Placed the box at the shelf.")
                     
