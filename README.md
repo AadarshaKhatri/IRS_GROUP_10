@@ -9,8 +9,3 @@
 - **Ryan Small** — u3257881
 
 ---
-
-## Week 6 - Generate Map
-
-![Generate Map](image/map_1789562511.png)
-
