@@ -9,5 +9,3 @@
 - **Ryan Small** — u3257881
 
 ---
-
-## Currently Working Branch - [Link](https://github.com/AadarshaKhatri/IRS_GROUP_10/tree/dev) 
