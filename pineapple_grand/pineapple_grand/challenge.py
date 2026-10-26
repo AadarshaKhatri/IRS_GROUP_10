@@ -1,5 +1,6 @@
 import math
 import time
+
 import json
 import rclpy
 from rclpy.node import Node
@@ -14,30 +15,43 @@ import json
 from typing import List
 from geometry_msgs.msg import Twist
 
+
 class GrandChallenge(Node):
 
+    """Grand Challenge: Create Action Client, Check if the box is detected, Navigate according to the weight; use movelt to grab, navigate to the shelf, repeat."""
+
+    # Code from hs_pick_place.py (week-11)
     JOINT_NAMES: List[str] = ['joint_1','joint_2','joint_3','joint_4','joint_5','joint_6']
     PLANNING_GROUP: str = 'tmr_arm'
-    MOVELT_ACTION_NAME: str = '/move_action'  # keep identical to your setup
-    NAV_ACTION_NAME: str = "/navigate_to_pose"
+    MOVELT_ACTION_NAME: str = '/move_action'  # Changed this to the Movelt Action
+    NAV_ACTION_NAME: str = "/navigate_to_pose" # Changed this to the Nav 2 Action
 
+    # Initializing the Class    
     def __init__(self):
-        super().__init__('hs_waypoint_runner')
+        super().__init__('grand_challenge')
+
+        # Defining the Movelt and Nav 2 Action Client
         self.movelt_client = ActionClient(self, MoveGroup, self.MOVELT_ACTION_NAME)
         self.navigate_client = ActionClient(self,NavigateToPose,self.NAV_ACTION_NAME)
-        self.get_logger().info('Waiting for MoveGroup & NavigateToPose action server...')
-        self.movelt_client.wait_for_server()
+        self.get_logger().info('Waiting for MoveGroup & NavigateToPose action server...') # Printing the message
+        self.movelt_client.wait_for_server() 
         self.get_logger().info('MoveGroup action server ready.')
         self.navigate_client.wait_for_server()
         self.get_logger().info('NavigateToPose action server ready')
 
+        # Subscribing to the /hmi/unified_status (Code from plc_hmi_listener.py)
         self.subscription = self.create_subscription(String,'/hmi/unified_status',self.listener_callback,10)
+        
+        # Publishing velocity commands to the /cmd_vel
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+
+        # Creating instances to store the box information
         self.box = None
         self.hmi_triggered = False
         self.last_count = None 
         self.weight = None
-    # --- Helper function to build a PoseStamped ---
+    
+    # --- Helper function to build a PoseStamped (Code from hs_waypoint_follower.py) ---
     @staticmethod 
     def make_pose(x: float, y: float, yaw: float) -> PoseStamped:
         """
@@ -56,6 +70,7 @@ class GrandChallenge(Node):
         ps.pose.orientation.w = math.cos(half)
         return ps
 
+    # Code from hs_pick_place.py
     def _goal_from_joints(self, joints: List[float]) -> MoveGroup.Goal:
         goal = MoveGroup.Goal()
         req = MotionPlanRequest()
@@ -80,6 +95,7 @@ class GrandChallenge(Node):
         goal.planning_options.plan_only = False  # plan + execute
         return goal
 
+    # Code from hs_pick_place.py (Changed the method's name)
     def _send_arm_and_wait(self, joints: List[float]) -> bool:
         goal = self._goal_from_joints(joints)
         send_fut = self.movelt_client.send_goal_async(goal)
@@ -93,6 +109,7 @@ class GrandChallenge(Node):
         res = res_fut.result()
         return bool(res and res.status == 4)  # 4 = STATUS_SUCCEEDED
     
+    # Code from hs_pick_place.py (Changed the method's name)
     def send_nav_and_wait(self,pose: PoseStamped) -> bool:
         # Update timestamp (required in headers)
 
@@ -137,6 +154,7 @@ class GrandChallenge(Node):
         self.get_logger().info('Goal reached successfully!')
         return True
 
+    # Callback function for the subscriber (Refrence taken from plc_hmi_listener.py)
     def listener_callback(self, msg):
 
         try:
@@ -144,63 +162,75 @@ class GrandChallenge(Node):
             box = data["box"]
             counts = data["counts"]
             raw_weight = box.get("weight_raw")
+
+            # Checking if the weight is empty 
             if raw_weight is None or not str(raw_weight).strip():
                 return
 
+            # Storing the weight as string (The value usually has ": num kg")
             weight_str = str(raw_weight).replace(":", "").replace("kg", "").strip()
 
+            # Chaing it to int
             try:
                 weight = int(float(weight_str))
             except ValueError:
                 return
  
-
+            # Keeping the weight to be 0 instead of null
             if self.weight is None:
                 self.weight =0
             
+            # Creates the instance for weight
             self.weight = weight
-
+            
+            # Creates the instance for total_counts
             total_count = counts["total"]
             
-            # Updating Total Counts
+            # Checking if the instance is null or not
             if self.last_count is None:
-                self.last_count = total_count
+                self.last_count = total_count # Stores the current count
                 return
-
+            
+            # Checking if nex box has been added/ spawned
             if total_count > self.last_count:
                 self.hmi_triggered = True
                 self.get_logger().info("New Box Detcted!")
 
+            # Storing the count
             self.last_count = total_count
 
         except Exception as e:
             self.get_logger().error(f"Failed to parse JSON: {e}\nRaw msg={msg.data}")
 
- 
+    
+    # Publishser method, which makes the omron to reverse
     def reverse_robot(self):
-        cmd = Twist()
-        cmd.linear.x = -1.0  # Reverse at 0.1 m/s
+        cmd = Twist() # Creates an object of Twist
+        cmd.linear.x = -1.0  # Reverse at -1 m/s
         cmd.angular.z = 0.0  # No rotation
 
+        # Publishes the commands 20 times at 0.1 seconds interval; so 0.1*20 = Reverses for 2 seconds 
         for i in range(20):
             self.cmd_pub.publish(cmd)
             time.sleep(0.1)
 
-        # Stop the robot
+        # Stop the reversing
         self.cmd_pub.publish(Twist())
-     
+    
+    # Run method
     def run(self):
 
-        original_position = [0.0, 0.0, 1.57, 0.0, 1.57, 0.0]
+        # Position taken from Assignment 3.2   
         pick_position = [math.radians(2.0), math.radians(35.0), math.radians(90.0), math.radians(316.0),math.radians(86.0), math.radians(69.0)]
         carry_postion = [math.radians(2.0), math.radians(8.0), math.radians(70.0), math.radians(316.0), math.radians(86.0), math.radians(69.0)]
         place_position = [math.radians(2.0), math.radians(3.0), math.radians(110.0), math.radians(316.0),math.radians(86.0), math.radians(69.0)]
 
+        # Used publish point to approximate the pick up location
         location_C = self.make_pose(2.83,0.7426536083221436,0.000)
         location_B = self.make_pose(2.82,-0.0332,0.000)
         location_A = self.make_pose(2.5,-0.65,0.000)
 
-        
+        # Used publish point tool in rviz to approximate the position
         shelf_position = self.make_pose(30.9,-4.72,-1.5714)
         try:
             while rclpy.ok():
@@ -211,7 +241,8 @@ class GrandChallenge(Node):
                     break
                 
                 self.hmi_triggered = False
-            
+
+                # Condition for small box
                 if self.weight>0 and self.weight<=5:
                     self.get_logger().info('Navigating to location C')
                     if not self.send_nav_and_wait(location_C):
@@ -222,12 +253,10 @@ class GrandChallenge(Node):
                         return 
 
                     self.get_logger().info("Carrying the box")
-                    
                     if not self._send_arm_and_wait(carry_postion):
                         return
 
                     self.carry_postion = True
-
                     self.get_logger().info("Turnign Around")    
                     self.reverse_robot()
 
@@ -245,8 +274,9 @@ class GrandChallenge(Node):
                         self.get_logger().info("Turning Around")
                         self.reverse_robot()
                     
-                    self.get_logger().info("Placed the box at the shelf.")
-                    
+                    self.get_logger().info("Action Completed. Please spawn a new one")
+                
+                # Condition for medium box
                 if self.weight>5 and self.weight<=10:
                     self.get_logger().info('Navigating to location B')
                     if not self.send_nav_and_wait(location_B):
@@ -257,12 +287,10 @@ class GrandChallenge(Node):
                         return 
 
                     self.get_logger().info("Carrying the box")
-
                     if not self._send_arm_and_wait(carry_postion):
                         return
 
                     self.carry_postion = True
-                    
                     self.get_logger().info("Turning Around")
                     self.reverse_robot()
                     
@@ -280,7 +308,7 @@ class GrandChallenge(Node):
                         self.get_logger().info("Turning Around")
                         self.reverse_robot()
                     
-                    self.get_logger().info("Placed the box at the shelf.")
+                    self.get_logger().info("Action completed. Please spawn a new one")
                     
                 if self.weight>10:
                     self.get_logger().info('Navigating to location A')
@@ -292,12 +320,10 @@ class GrandChallenge(Node):
                         return 
 
                     self.get_logger().info("Carrying the box")
-
                     if not self._send_arm_and_wait(carry_postion):
                         return
                     
                     self.carry_postion = True
-                    
                     self.get_logger().info("Turning Around")
                     self.reverse_robot()
 
@@ -313,11 +339,10 @@ class GrandChallenge(Node):
 
 
                         self.carry_postion = False
-
                         self.get_logger().info("Turning Around")
                         self.reverse_robot()
                     
-                    self.get_logger().info("Placed the box at the shelf.")
+                    self.get_logger().info("Action completed. Please spawn a new one")
                     
 
         except (json.JSONDecodeError, KeyError, TypeError, AttributeError) as e:
@@ -325,6 +350,7 @@ class GrandChallenge(Node):
 
 
 
+# Main fucntion that runs the node
 def main(args=None):
     rclpy.init(args=args)
     node = GrandChallenge()
