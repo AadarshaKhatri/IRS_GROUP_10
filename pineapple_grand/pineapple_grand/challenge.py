@@ -221,18 +221,19 @@ class GrandChallenge(Node):
     def run(self):
 
         # Position taken from Assignment 3.2   
-        pick_position = [math.radians(2.0), math.radians(35.0), math.radians(90.0), math.radians(316.0),math.radians(86.0), math.radians(69.0)]
-        carry_postion = [math.radians(2.0), math.radians(8.0), math.radians(70.0), math.radians(316.0), math.radians(86.0), math.radians(69.0)]
-        place_position = [math.radians(2.0), math.radians(3.0), math.radians(110.0), math.radians(316.0),math.radians(86.0), math.radians(69.0)]
-        original_position = [math.radians(0.0),math.radians(0.0),math.radians(0.0),math.radians(0.0),math.radians(0.0),math.radians(0.0)] 
+        pick_position = [math.radians(0.0), math.radians(64.0), math.radians(27.0), math.radians(2.0),math.radians(94.0), math.radians(23.0)]
+        carry_postion = [math.radians(2.0), math.radians(0.0), math.radians(30.0), math.radians(316.0), math.radians(86.0), math.radians(69.0)]
+        place_position = [math.radians(2.0), math.radians(5.0), math.radians(120.0), math.radians(316.0),math.radians(86.0), math.radians(69.0)]
+
+        original_arm_position = [math.radians(0),math.radians(0),math.radians(0),math.radians(0),math.radians(0),math.radians(0)] 
         
         # Used publish point to approximate the pick up location
         location_C = self.make_pose(2.18,0.506,0.000)
         location_B = self.make_pose(2.32,0.0306,0.000)
         location_A = self.make_pose(2.24,-0.381,0.000)
-        original_arm_location = self.make_pose(0.00, 0.00, 0.00)
+        robot_start = self.make_pose(0.00, 0.00, 0.00)
         # Used publish point tool in rviz to approximate the position
-        shelf_position = self.make_pose(30.9,-5.22,-1.5714)
+        shelf_position = self.make_pose(30.7,-4.90,-1.5714)
 
         try:
             while rclpy.ok():
@@ -280,7 +281,7 @@ class GrandChallenge(Node):
                         self._send_arm_and_wait(original_arm_position)
 
                         self.get_logger().info("Going back to the original location")
-                        self.send_nav_and_wait(original_position)
+                        self.send_nav_and_wait(robot_start)
                     
                     self.get_logger().info("Action Completed. Please spawn a new one")
                 
@@ -315,11 +316,11 @@ class GrandChallenge(Node):
 
                         self.get_logger().info("Turning Around")
                         self.reverse_robot()
-                        self.get_logger().info("Putting the arm at the originalm position!")
+                        self.get_logger().info("Putting the arm at the original position!")
                         self._send_arm_and_wait(original_arm_position)
 
                         self.get_logger().info("Going back to the original location")
-                        self.send_nav_and_wait(original_position)
+                        self.send_nav_and_wait(robot_start)
                     
                     self.get_logger().info("Action completed. Please spawn a new one")
                     
@@ -354,11 +355,11 @@ class GrandChallenge(Node):
                         self.carry_postion = False
                         self.get_logger().info("Turning Around")
                         self.reverse_robot()
-                        self.get_logger().info("Putting the arm at the originalm position!")
+                        self.get_logger().info("Putting the arm at the original position!")
                         self._send_arm_and_wait(original_arm_position)
 
                         self.get_logger().info("Going back to the original location")
-                        self.send_nav_and_wait(original_position)
+                        self.send_nav_and_wait(robot_start)
                     
                     self.get_logger().info("Action completed. Please spawn a new one")
                     
